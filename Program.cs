@@ -88,10 +88,7 @@ namespace AutomatedBlockUsers
                 lastUser = users[users.Count - 1];
                 //fetch next page
 
-
-                //next page had no results
-                //refine search criteria and fetch next batch of 1000 (if any)
-
+                //get next users to block
                 string refineDate;
                 if (forUsersWithNoLogin)
                 {
