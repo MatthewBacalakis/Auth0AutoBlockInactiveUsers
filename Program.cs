@@ -39,7 +39,7 @@ namespace AutomatedBlockUsers
             #region unblock users
             if (args.Length > 0 && args[0] == "true")
             {
-                var allUsers = await SearchUsers(string.Empty, 0, ",blocked");
+                var allUsers = await SearchUsers(string.Empty, ",blocked");
                 foreach (var user in allUsers)
                 {
                     if (user.Blocked == true)
@@ -54,43 +54,69 @@ namespace AutomatedBlockUsers
             var BlockThreshold = GetConfigValue("BlockThreshold");
             Console.WriteLine($"Blocking users whose last login was {BlockThreshold} days ago.  Last login occurred on or before: {DateTimeOffset.UtcNow.AddDays(double.Parse(BlockThreshold) * -1).ToString("yyyy-MM-dd")})");
 
+            await BlockUsers(false);
+            //await BlockUser(true);
+        }
+
+
+        static async Task BlockUsers(bool forUsersWithNoLogin)
+        {
             //build search query to fetch first (up to) 1000 applicable users
-            var searchQuery = BuildUserSearchQuery();
+            var searchQuery = BuildUserSearchQuery(forUsersWithNoLogin);
 
             //fetch users that match initial query
-            var users = await SearchUsers(searchQuery, 0);
+            var users = await SearchUsers(searchQuery);
 
-            int page = 0;
+
             int blockedUsers = 0;
+            User lastUser = null;
 
             while (users.Count > 0)
             {
                 foreach (var user in users)
                 {
                     //block each user, this could be enhanced to do multiple calls concurrently
+                    if (user.UserId == lastUser?.UserId)
+                        //searching by last user's lastLogin will return same user
+                        //don't block them again
+                        continue;
                     await BlockUser(user);
                     blockedUsers++;
                 }
 
                 //save last user so we have their LastLogin/create time in case we need to refine search
-                var lastUser = users[users.Count - 1];
+                lastUser = users[users.Count - 1];
                 //fetch next page
-                page++;
-                users = await SearchUsers(searchQuery, page);
 
-                // if (users.Count == 0)
-                // {
-                //     //next page had no results
-                //     //refine search criteria and fetch next batch of 1000 (if any)
-                //     page = 0;
-                //     searchQuery = BuildUserSearchQuery(lastUser.LastLogin.ToString());
-                //     await SearchUsers(searchQuery, page);
-                // }
+
+                //next page had no results
+                //refine search criteria and fetch next batch of 1000 (if any)
+
+                string refineDate;
+                if (forUsersWithNoLogin)
+                {
+                    refineDate = ((DateTime)lastUser.CreatedAt).ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'");
+                }
+                else
+                {
+                    refineDate = ((DateTime)lastUser.LastLogin).ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'");
+                }
+
+
+                Console.WriteLine($"Refine search to look for users after {refineDate}");
+                searchQuery = BuildUserSearchQuery(forUsersWithNoLogin, refineDate);
+                users = await SearchUsers(searchQuery);
+                if (users.Count > 0)
+                {
+                    //Remove first user 
+                    users.RemoveAt(0);
+                }
+                Console.WriteLine($"Refined search found  {users.Count} new users.");
+
             }
 
             Console.WriteLine($"Blocked {blockedUsers} users.");
         }
-
 
         /// <summary>
         /// Fetches an access token for the Auth0 Management api
@@ -110,20 +136,26 @@ namespace AutomatedBlockUsers
         /// <summary>
         /// Builds the search string passed to the user search endpoints q param.
         /// </summary>
-        static string BuildUserSearchQuery(string refineDate = "*")
+        static string BuildUserSearchQuery(bool forUsersWithNoLogin, string refineDate = "*")
         {
             var BlockThreshold = GetConfigValue("BlockThreshold");
             var BlockDate = DateTimeOffset.UtcNow.AddDays(double.Parse(BlockThreshold) * -1).ToString("yyyy-MM-dd");
-            // get unblocked users whose last login was before blockdate, or who have not logged in 
-            //and whose create date is prior to blockdate
-            return $"(last_login: [{refineDate} TO {BlockDate}] OR (-last_login:[* TO *] AND created_at:[{refineDate} TO {BlockDate}])) AND  -blocked:true";
-            //todo: filter by connection: identities.connection:"connection_name"
+
+            if (forUsersWithNoLogin)
+                // get unblocked users who have not logged in and whose created_at data was before blockdate
+                return "-last_login:[* TO *] AND created_at:[{refineDate} TO {BlockDate}] AND -blocked:true";
+            else
+            {
+                // get unblocked users whose last login was before blockdate
+                return $"last_login: [{refineDate} TO {BlockDate}] AND -blocked:true";
+                //todo: filter by connection: identities.connection:"connection_name"
+            }
         }
 
         /// <summary>
         /// Searches the management api for users to block
         /// </summary>
-        static async Task<IPagedList<User>> SearchUsers(string searchQuery, int page, string additionalFields = "")
+        static async Task<IPagedList<User>> SearchUsers(string searchQuery, string additionalFields = "")
         {
             var userRequest = new GetUsersRequest();
 
@@ -131,11 +163,11 @@ namespace AutomatedBlockUsers
             userRequest.Query = searchQuery;
             userRequest.Sort = "last_login:1";
 
-            var pageInfo = new PaginationInfo(page, int.Parse(GetConfigValue("UserPageSize")), true);
+            var pageInfo = new PaginationInfo(0, int.Parse(GetConfigValue("UserPageSize")), true);
 
             try
             {
-                Console.WriteLine($"Fetching users. query: {searchQuery}. page: {page}");
+                Console.WriteLine($"Fetching users. query: {searchQuery}.");
                 return await MgmtClient.Users.GetAllAsync(userRequest, pageInfo);
             }
             catch (ApiException e)
@@ -144,7 +176,7 @@ namespace AutomatedBlockUsers
                 {
                     //update failed due to mgmt api rate limits.  Try one more time after delay.
                     await PauseForRateLimitReset(MgmtClient.GetLastApiInfo());
-                    Console.WriteLine($"Fetching users. query: {searchQuery}. page: {page}");
+                    Console.WriteLine($"Fetching users. query: {searchQuery}. ");
                     return await MgmtClient.Users.GetAllAsync(userRequest, pageInfo);
                 }
                 throw;
