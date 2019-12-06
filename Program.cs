@@ -77,7 +77,7 @@ namespace AutomatedBlockUsers
         /// </summary>
         static async Task<int> BlockUsers(bool forUsersWithNoLogin)
         {
-            //build search query to fetch first (up to) 1000 applicable users
+            //build search query to fetch first (up to) 100 applicable users
             var searchQuery = BuildUserSearchQuery(forUsersWithNoLogin);
 
             //fetch users that match initial query
