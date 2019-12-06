@@ -35,7 +35,7 @@ namespace AutomatedBlockUsers
 
             MgmtClient = new ManagementApiClient(token, GetConfigValue("A0Domain"));
 
-            //for test purposes: run utilty with param of "true" to unblock 1 page of users after testing
+            //for test purposes: run utility with param of "-u" to unblock 1 page of users after testing
             #region unblock users
             if (args.Length > 0 && args[0] == "-u")
             {
@@ -100,7 +100,7 @@ namespace AutomatedBlockUsers
                     blockedUsers++;
                 }
 
-                //save last user so we have their LastLogin/create time in case we need to refine search
+                //save last user so we have their LastLogin/create time to refine search
                 lastUser = users[users.Count - 1];
                 //fetch next page
 
