@@ -1,6 +1,6 @@
 # Automatically Blocking Inactive Users In Auth0
 
-Sample implementation of an offline process that uses the Auth0 management api to identify and then block users who haven't logged in a certain number of days. **This is a proof of concept and should not be considered production ready code.**
+Sample implementation of an offline process that uses the Auth0 management api to identify and then block users who haven't logged in in a certain number of days. **This is a proof of concept and should not be considered production ready code.**
 
 # Prerequisites
 
