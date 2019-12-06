@@ -67,7 +67,7 @@ namespace AutomatedBlockUsers
             int usersBlockedByCreate = await BlockUsers(true);
             Console.WriteLine($"Blocked {usersBlockedByLogin} users based on last_login.");
             Console.WriteLine($"Blocked {usersBlockedByCreate} users based on created_at.");
-            Console.WriteLine($"Blocked {usersBlockedByLogin + usersBlockedByCreate} users based in total");
+            Console.WriteLine($"Blocked {usersBlockedByLogin + usersBlockedByCreate} users in total");
         }
 
 
