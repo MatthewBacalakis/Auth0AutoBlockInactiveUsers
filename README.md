@@ -23,4 +23,4 @@ The appsettings.json file must be populated with the appropriate values before r
 
 # Running the POC
 
-This POC can be run from the terminal with the `dotnet run` command. To aid testing running `dotnet run -u` will unblock users one page of users. The number of uses unblocked will be the value of the UserPageSize setting.
+This POC can be run from the terminal with the `dotnet run` command. To aid testing running `dotnet run -u` will unblock one page of users. The number of uses unblocked will be the value of the UserPageSize setting.
