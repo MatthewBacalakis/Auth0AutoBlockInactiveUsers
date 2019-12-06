@@ -35,18 +35,22 @@ namespace AutomatedBlockUsers
 
             MgmtClient = new ManagementApiClient(token, GetConfigValue("A0Domain"));
 
-            //for test purposes: run utilty with param of "true" to unblock all users after testing
+            //for test purposes: run utilty with param of "true" to unblock 1 page of users after testing
             #region unblock users
             if (args.Length > 0 && args[0] == "true")
             {
-                var allUsers = await SearchUsers(string.Empty, ",blocked");
+                int count = 0;
+                var allUsers = await SearchUsers(string.Empty, false, ",blocked");
                 foreach (var user in allUsers)
                 {
                     if (user.Blocked == true)
                     {
+                        count++;
                         await BlockUser(user, false);
                     }
                 }
+
+                Console.WriteLine($"Unblocked {count} users.");
                 return;
             }
             #endregion
@@ -54,19 +58,30 @@ namespace AutomatedBlockUsers
             var BlockThreshold = GetConfigValue("BlockThreshold");
             Console.WriteLine($"Blocking users whose last login was {BlockThreshold} days ago.  Last login occurred on or before: {DateTimeOffset.UtcNow.AddDays(double.Parse(BlockThreshold) * -1).ToString("yyyy-MM-dd")})");
 
-            await BlockUsers(false);
-            //await BlockUser(true);
+            //block users who have a login date
+            int usersBlockedByLogin = await BlockUsers(false);
+            Console.WriteLine($"Blocked {usersBlockedByLogin} users based on last_login.");
+            Console.WriteLine();
+
+            //block users who have never logged in based on create date.
+            int usersBlockedByCreate = await BlockUsers(true);
+            Console.WriteLine($"Blocked {usersBlockedByLogin} users based on last_login.");
+            Console.WriteLine($"Blocked {usersBlockedByCreate} users based on created_at.");
+            Console.WriteLine($"Blocked {usersBlockedByLogin + usersBlockedByCreate} users based in total");
         }
 
 
-        static async Task BlockUsers(bool forUsersWithNoLogin)
+        /// <summary>
+        /// Searches and blocks all users based either on last_login or create date if user has never logged in
+        /// as indicated by bool param
+        /// </summary>
+        static async Task<int> BlockUsers(bool forUsersWithNoLogin)
         {
             //build search query to fetch first (up to) 1000 applicable users
             var searchQuery = BuildUserSearchQuery(forUsersWithNoLogin);
 
             //fetch users that match initial query
-            var users = await SearchUsers(searchQuery);
-
+            var users = await SearchUsers(searchQuery, forUsersWithNoLogin);
 
             int blockedUsers = 0;
             User lastUser = null;
@@ -75,10 +90,11 @@ namespace AutomatedBlockUsers
             {
                 foreach (var user in users)
                 {
-                    //block each user, this could be enhanced to do multiple calls concurrently
+                    //block each user
                     if (user.UserId == lastUser?.UserId)
-                        //searching by last user's lastLogin will return same user
-                        //don't block them again
+                        //doing refined search by last user's lastLogin can return same user since search
+                        //is eventually consistent
+                        //don't block same user again
                         continue;
                     await BlockUser(user);
                     blockedUsers++;
@@ -88,7 +104,7 @@ namespace AutomatedBlockUsers
                 lastUser = users[users.Count - 1];
                 //fetch next page
 
-                //get next users to block
+                //formate last user's last_login date for search
                 string refineDate;
                 if (forUsersWithNoLogin)
                 {
@@ -99,20 +115,19 @@ namespace AutomatedBlockUsers
                     refineDate = ((DateTime)lastUser.LastLogin).ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'");
                 }
 
-
+                //get next batch of users to block.
                 Console.WriteLine($"Refine search to look for users after {refineDate}");
                 searchQuery = BuildUserSearchQuery(forUsersWithNoLogin, refineDate);
-                users = await SearchUsers(searchQuery);
-                if (users.Count > 0)
-                {
-                    //Remove first user 
-                    users.RemoveAt(0);
-                }
-                Console.WriteLine($"Refined search found  {users.Count} new users.");
+                users = await SearchUsers(searchQuery, forUsersWithNoLogin);
+                if (users.Count == 1 && users[0].UserId == lastUser?.UserId)
+                    //doing refined search by last user's lastLogin could return same user since search
+                    //is eventually consistent.  If they are the only user returned we are done
+                    users.Clear();
 
+                Console.WriteLine($"Refined search found  {users.Count} new users.");
             }
 
-            Console.WriteLine($"Blocked {blockedUsers} users.");
+            return blockedUsers;
         }
 
         /// <summary>
@@ -139,26 +154,25 @@ namespace AutomatedBlockUsers
             var BlockDate = DateTimeOffset.UtcNow.AddDays(double.Parse(BlockThreshold) * -1).ToString("yyyy-MM-dd");
 
             if (forUsersWithNoLogin)
-                // get unblocked users who have not logged in and whose created_at data was before blockdate
-                return "-last_login:[* TO *] AND created_at:[{refineDate} TO {BlockDate}] AND -blocked:true";
+                // get unblocked users who have not logged in and whose created_at date was before blockdate
+                return $"-last_login:[* TO *] AND created_at:[{refineDate} TO {BlockDate}] AND -blocked:true";
             else
             {
                 // get unblocked users whose last login was before blockdate
                 return $"last_login: [{refineDate} TO {BlockDate}] AND -blocked:true";
-                //todo: filter by connection: identities.connection:"connection_name"
             }
         }
 
         /// <summary>
         /// Searches the management api for users to block
         /// </summary>
-        static async Task<IPagedList<User>> SearchUsers(string searchQuery, string additionalFields = "")
+        static async Task<IPagedList<User>> SearchUsers(string searchQuery, bool forUsersWithNoLogin, string additionalFields = "")
         {
             var userRequest = new GetUsersRequest();
 
             userRequest.Fields = $"user_id,last_login,blocked,created_at{additionalFields}";
             userRequest.Query = searchQuery;
-            userRequest.Sort = "last_login:1";
+            userRequest.Sort = forUsersWithNoLogin ? "created_at:1" : "last_login:1";
 
             var pageInfo = new PaginationInfo(0, int.Parse(GetConfigValue("UserPageSize")), true);
 
