@@ -72,7 +72,7 @@ namespace AutomatedBlockUsers
 
 
         /// <summary>
-        /// Searches and blocks all users based either on last_login or create date if user has never logged in
+        /// Identifies and blocks all users based either on last_login or create date if user has never logged in
         /// as indicated by bool param
         /// </summary>
         static async Task<int> BlockUsers(bool forUsersWithNoLogin)
@@ -104,7 +104,7 @@ namespace AutomatedBlockUsers
                 lastUser = users[users.Count - 1];
                 //fetch next page
 
-                //formate last user's last_login date for search
+                //format last user's last_login or created_at date for search
                 string refineDate;
                 if (forUsersWithNoLogin)
                 {
@@ -153,6 +153,8 @@ namespace AutomatedBlockUsers
             var BlockThreshold = GetConfigValue("BlockThreshold");
             var BlockDate = DateTimeOffset.UtcNow.AddDays(double.Parse(BlockThreshold) * -1).ToString("yyyy-MM-dd");
 
+            //Enchancement Option: The search could be narrowed to users in a specific connection by including:
+            // identities.connection:"connection_name"
             if (forUsersWithNoLogin)
                 // get unblocked users who have not logged in and whose created_at date was before blockdate
                 return $"-last_login:[* TO *] AND created_at:[{refineDate} TO {BlockDate}] AND -blocked:true";
