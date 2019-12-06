@@ -1,9 +1,15 @@
+using Newtonsoft.Json;
 public class TokenResponse
 {
-    public string access_token { get; set; }
-    public string scope { get; set; }
+    [JsonProperty("access_token")]
+    public string AccessToken { get; set; }
 
-    public int expires_in { get; set; }
+    [JsonProperty("scope")]
+    public string Scope { get; set; }
 
-    public string token_type { get; set; }
+    [JsonProperty("expires_in")]
+    public int ExpiresIn { get; set; }
+
+    [JsonProperty("token_type")]
+    public string TokenType { get; set; }
 }

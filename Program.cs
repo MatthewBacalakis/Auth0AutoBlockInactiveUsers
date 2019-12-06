@@ -31,7 +31,7 @@ namespace AutomatedBlockUsers
             configuration = builder.Build();
 
             //get token to call mgmt api
-            var token = (await GetMgmtApiToken()).access_token;
+            var token = (await GetMgmtApiToken()).AccessToken;
 
             MgmtClient = new ManagementApiClient(token, GetConfigValue("A0Domain"));
 
