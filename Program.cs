@@ -37,7 +37,7 @@ namespace AutomatedBlockUsers
 
             //for test purposes: run utilty with param of "true" to unblock 1 page of users after testing
             #region unblock users
-            if (args.Length > 0 && args[0] == "true")
+            if (args.Length > 0 && args[0] == "-u")
             {
                 int count = 0;
                 var allUsers = await SearchUsers(string.Empty, false, ",blocked");
