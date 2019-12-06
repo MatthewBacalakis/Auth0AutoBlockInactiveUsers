@@ -1,6 +1,6 @@
 # Automatically Blocking Inactive Users In Auth0
 
-Sample implementation of an offline process that uses the Auth0 management api to identify and then block users who haven't logged in a certain number of days. **This is a proof of concept and should not be considered production ready code.**
+Sample implementation of an offline process that uses the Auth0 management api to identify and then block users who haven't logged in in a certain number of days. **This is a proof of concept and should not be considered production ready code.**
 
 # Prerequisites
 
@@ -23,4 +23,4 @@ The appsettings.json file must be populated with the appropriate values before r
 
 # Running the POC
 
-This POC can be run from the terminal with the `dotnet run` command. To aid testing running `dotnet run -u` will unblock users one page of users. The number of uses unblocked will be the value of the UserPageSize setting.
+This POC can be run from the terminal with the `dotnet run` command. To aid testing running `dotnet run -u` will unblock one page of users. The number of uses unblocked will be the value of the UserPageSize setting.
