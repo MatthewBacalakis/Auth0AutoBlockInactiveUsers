@@ -106,14 +106,8 @@ namespace AutomatedBlockUsers
 
                 //format last user's last_login or created_at date for search
                 string refineDate;
-                if (forUsersWithNoLogin)
-                {
-                    refineDate = ((DateTime)lastUser.CreatedAt).ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'");
-                }
-                else
-                {
-                    refineDate = ((DateTime)lastUser.LastLogin).ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'");
-                }
+                var unformatedDate = forUsersWithNoLogin ? lastUser.CreatedAt : lastUser.LastLogin;
+                refineDate = ((DateTime)unformatedDate).ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'");
 
                 //get next batch of users to block.
                 Console.WriteLine($"Refine search to look for users after {refineDate}");
